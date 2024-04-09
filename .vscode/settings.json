@@ -12,7 +12,11 @@
         "interface/ftdi/esp32_devkitj_v1.cfg",
         "target/esp32.cfg"
     ],
-    "idf.portWin": "COM1",
+    "idf.portWin": "COM3",
     "idf.pythonBinPathWin": "C:\\Users\\Dominik\\.espressif\\python_env\\idf5.2_py3.11_env\\Scripts\\python.exe",
-    "idf.toolsPathWin": "C:\\Users\\Dominik\\.espressif"
+    "idf.toolsPathWin": "C:\\Users\\Dominik\\.espressif",
+    "files.associations": {
+        "esp_http_server.h": "c"
+    },
+    "idf.flashType": "UART"
 }
