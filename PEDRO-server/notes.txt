@@ -1,0 +1,2 @@
+Build a TCP/IP server for the ESP32
+Let it broadcast a message with its IP and port, so that the client can scan for it and establish a connection
