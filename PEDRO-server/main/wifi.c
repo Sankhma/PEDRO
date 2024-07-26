@@ -175,8 +175,10 @@ esp_err_t wifi_ap_config() {
     return ESP_OK;
 }
 
-void wifi_boot() {
+void wifi_start() {
     ESP_ERROR_CHECK(wifi_ap_init());
     ESP_ERROR_CHECK(wifi_ap_config());
     ESP_ERROR_CHECK(esp_wifi_start());
 }
+
+void wifi_stop() {} // TODO
