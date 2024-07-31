@@ -5,6 +5,8 @@
 #define PORT 7777
 #define MAX_PENDING_CONNECTIONS 32
 
+#define kilobytes(x) {x * 1024}
+
 static const char* SOCKET_TAG = "SOCKET";
 
 esp_err_t create_socket(int* socket_id, int domain, int type, int protocol) {
@@ -50,6 +52,24 @@ esp_err_t listen_socket(int socket_id) {
     return ESP_OK;
 }
 
+void tcp_data_transfer(int* params) {
+    int client_id = *params;
+    int recv_size;
+    int recv_buff_size = kilobytes(64);
+    void* recv_buff = malloc(recv_buff_size);
+    while(true) {
+        // receive
+        recv_size = recv(client_id, recv_buff, recv_buff_size, NULL);
+        if(recv_size < 0) {
+            ESP_LOGE(SOCKET_TAG, "Failed to receive data from the client socket id: %d.", client_id);
+        }
+        // send
+    }
+
+    free(recv_buff);
+    // cleanup of the socket/task
+}
+
 void tcp_server_task() {
     int socket_id;
     struct sockaddr sock_addr;
@@ -58,6 +78,8 @@ void tcp_server_task() {
     config_socket((struct sockaddr_in*) &sock_addr, AF_INET, PORT, IPADDR_ANY);
     ESP_ERROR_CHECK(bind_socket(socket_id, &sock_addr));
     ESP_ERROR_CHECK(listen_socket(socket_id));
+
+    int keep_alive = 1;
 
     struct sockaddr_in client_addr;
     memset(&client_addr, 0, sizeof(client_addr));
@@ -74,7 +96,11 @@ void tcp_server_task() {
         inet_ntoa_r(client_addr.sin_addr, addr_str, sizeof(addr_str) - 1);
         ESP_LOGD(SOCKET_TAG, "Accepted a connection from: %s", addr_str);
 
-        // xTaskCreatePinnedToCore(socket_handler, "SOCKET_HANDLER", STACK_SIZE, &client_id, tskIDLE_PRIORITY, NULL, tskNO_AFFINITY);
+        setsockopt(client_id, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
+
+        // TODO : Potentially, the value of client_id is changed before it can be assigned in the task. Locking the memory of client_id, before asgning and then ub]nlokcing it, mutex?
+
+        xTaskCreatePinnedToCore(tcp_data_transfer, "TCP_DATA_TRANSFER", STACK_SIZE, &client_id, tskIDLE_PRIORITY, NULL, tskNO_AFFINITY);
 
     }
 }
