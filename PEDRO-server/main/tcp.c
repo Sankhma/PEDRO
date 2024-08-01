@@ -5,9 +5,18 @@
 #define PORT 7777
 #define MAX_PENDING_CONNECTIONS 32
 
+#define STACK_SIZE 8192
+
+#define LOCK_CHECK_DELAY 5
+
 #define kilobytes(x) {x * 1024}
 
 static const char* SOCKET_TAG = "SOCKET";
+
+struct memlock {
+    void* memory;
+    bool lock;
+};
 
 esp_err_t create_socket(int* socket_id, int domain, int type, int protocol) {
     int res = 0;
@@ -52,14 +61,15 @@ esp_err_t listen_socket(int socket_id) {
     return ESP_OK;
 }
 
-void tcp_data_transfer(int* params) {
-    int client_id = *params;
+void tcp_data_transfer(void* params) {
+    int client_id = *(int*)params;
+    ((struct memlock*)params)->lock = 0;
     int recv_size;
     int recv_buff_size = kilobytes(64);
     void* recv_buff = malloc(recv_buff_size);
     while(true) {
         // receive
-        recv_size = recv(client_id, recv_buff, recv_buff_size, NULL);
+        recv_size = recv(client_id, recv_buff, recv_buff_size, 0);
         if(recv_size < 0) {
             ESP_LOGE(SOCKET_TAG, "Failed to receive data from the client socket id: %d.", client_id);
         }
@@ -85,8 +95,15 @@ void tcp_server_task() {
     memset(&client_addr, 0, sizeof(client_addr));
     socklen_t client_addrlen;
     char addr_str[128];
+    int client_id;
+    struct memlock parameters;
+    parameters.lock = 0;
+    parameters.memory = &client_id;
     while(true) {
-        int client_id = accept(socket_id, (struct sockaddr *)&client_addr, &client_addrlen);
+        while(parameters.lock == 1) {
+            vTaskDelay(LOCK_CHECK_DELAY);
+        }
+        client_id = accept(socket_id, (struct sockaddr *)&client_addr, &client_addrlen);
         if(client_id == -1) {
             ESP_LOGE(SOCKET_TAG, "Failed to accept a connection.");
             close(socket_id);
@@ -98,9 +115,9 @@ void tcp_server_task() {
 
         setsockopt(client_id, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
 
-        // TODO : Potentially, the value of client_id is changed before it can be assigned in the task. Locking the memory of client_id, before asgning and then ub]nlokcing it, mutex?
+        parameters.lock = 1;
 
-        xTaskCreatePinnedToCore(tcp_data_transfer, "TCP_DATA_TRANSFER", STACK_SIZE, &client_id, tskIDLE_PRIORITY, NULL, tskNO_AFFINITY);
+        xTaskCreatePinnedToCore(tcp_data_transfer, "TCP_DATA_TRANSFER", STACK_SIZE, &parameters, tskIDLE_PRIORITY, NULL, tskNO_AFFINITY);
 
     }
 }
