@@ -5,6 +5,7 @@
 #define PORT 7777
 #define MAX_PENDING_CONNECTIONS 32
 
+// TODO : already defined in main.c
 #define STACK_SIZE 8192
 
 #define LOCK_CHECK_DELAY 5
@@ -62,8 +63,10 @@ esp_err_t listen_socket(int socket_id) {
 }
 
 void tcp_data_transfer(void* params) {
-    int client_id = *(int*)params;
-    ((struct memlock*)params)->lock = 0;
+    int client_id = *(int *)(((struct memlock *)params)->memory);
+    ((struct memlock *)params)->lock = 0;
+
+    // TODO : a function that monitors the traffic and adjust the size of the buffer to suit the conditions
     int recv_size;
     int recv_buff_size = kilobytes(64);
     void* recv_buff = malloc(recv_buff_size);
@@ -71,13 +74,24 @@ void tcp_data_transfer(void* params) {
         // receive
         recv_size = recv(client_id, recv_buff, recv_buff_size, 0);
         if(recv_size < 0) {
-            ESP_LOGE(SOCKET_TAG, "Failed to receive data from the client socket id: %d.", client_id);
+            ESP_LOGE(SOCKET_TAG, "Failed to receive data from the client socket id: %d, with errno: %d.", client_id, errno);
+            ESP_LOGE(SOCKET_TAG, "Closing connection with the client_id: %d.", client_id);
+            close(client_id);
+            free(recv_buff);
+            vTaskDelete(NULL);
         }
+
+        /*
+        The recv() writes only the data part of the whole TCP/IP frame.
+
+        TODO: Create a standardized message for communication, like:
+            byte 0-4: type of message, ex. "REQ ", "MSG ", etc.
+
+            for "REQ ", rest of the bytes specify the names of the variables that the client requested.
+        */
+
         // send
     }
-
-    free(recv_buff);
-    // cleanup of the socket/task
 }
 
 void tcp_server_task() {
@@ -89,7 +103,8 @@ void tcp_server_task() {
     ESP_ERROR_CHECK(bind_socket(socket_id, &sock_addr));
     ESP_ERROR_CHECK(listen_socket(socket_id));
 
-    int keep_alive = 1;
+    // TODO: When is this usefull/necessary?
+    // int keep_alive = 1;
 
     struct sockaddr_in client_addr;
     memset(&client_addr, 0, sizeof(client_addr));
@@ -113,7 +128,7 @@ void tcp_server_task() {
         inet_ntoa_r(client_addr.sin_addr, addr_str, sizeof(addr_str) - 1);
         ESP_LOGD(SOCKET_TAG, "Accepted a connection from: %s", addr_str);
 
-        setsockopt(client_id, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
+        // setsockopt(client_id, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
 
         parameters.lock = 1;
 
