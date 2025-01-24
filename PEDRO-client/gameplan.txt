@@ -1,0 +1,20 @@
++ basic win32 window creation
++ direct2d initialization with some example code
++ sending, receiving data
++ basic message structure
++ can send data
+
+~ basic networking (can send data and receive, like actually)
+~ cleaning up networking
+
+- when connecting socket, it wait around 21s for it before it get timed out, it block the program from doing 
+anything else
+- outputting debug information into the output screen in visual studio
+- background screen, with semi-transparent wheel, that indicates connecting to host
+- first window
+- first graph
+
+- advanced networking capabilities
+- window placement
+
+- money???
